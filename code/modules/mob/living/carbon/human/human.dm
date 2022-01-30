@@ -552,7 +552,7 @@
 #undef CPR_PANIC_SPEED
 
 /mob/living/carbon/human/cuff_resist(obj/item/I)
-	if(dna?.check_mutation(HULK))
+	if(dna?.check_mutation(/datum/mutation/human/hulk))
 		say(pick(";RAAAAAAAARGH!", ";HNNNNNNNNNGGGGGGH!", ";GWAAAAAAAARRRHHH!", "NNNNNNNNGGGGGGGGHH!", ";AAAAAAARRRGH!" ), forced = "hulk")
 		if(..(I, cuff_break = FAST_CUFFBREAK))
 			dropItemToGround(I)
@@ -709,8 +709,7 @@
 		return
 	else
 		if(hud_used.healths)
-			var/health_amount = min(health, maxHealth - getStaminaLoss())
-			if(..(health_amount)) //not dead
+			if(..()) //not dead
 				switch(hal_screwyhud)
 					if(SCREWYHUD_CRIT)
 						hud_used.healths.icon_state = "health6"
