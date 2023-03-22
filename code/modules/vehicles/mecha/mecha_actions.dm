@@ -1,104 +1,23 @@
-///Called when a driver clicks somewhere. Handles everything like equipment, punches, etc.
-/obj/vehicle/sealed/mecha/proc/on_mouseclick(mob/user, atom/target, list/modifiers)
-	SIGNAL_HANDLER
-	if(LAZYACCESS(modifiers, MIDDLE_CLICK))
-		set_safety(user)
-		return COMSIG_MOB_CANCEL_CLICKON
-	if(weapons_safety)
-		return
-	if(isAI(user)) //For AIs: If safeties are off, use mech functions. If safeties are on, use AI functions.
-		. = COMSIG_MOB_CANCEL_CLICKON
-	if(modifiers[SHIFT_CLICK]) //Allows things to be examined.
-		return
-	if(!isturf(target) && !isturf(target.loc)) // Prevents inventory from being drilled
-		return
-	if(completely_disabled || is_currently_ejecting || (mecha_flags & CANNOT_INTERACT))
-		return
-	if(phasing)
-		balloon_alert(user, "not while [phasing]!")
-		return
-	if(user.incapacitated())
-		return
-	if(construction_state)
-		balloon_alert(user, "end maintenance first!")
-		return
-	if(!get_charge())
-		return
-	if(src == target)
-		return
-	var/dir_to_target = get_dir(src,target)
-	if(!(mecha_flags & OMNIDIRECTIONAL_ATTACKS) && dir_to_target && !(dir_to_target & dir))//wrong direction
-		return
-	if(internal_damage & MECHA_INT_CONTROL_LOST)
-		target = pick(view(3,target))
-	var/mob/living/livinguser = user
-	if(!(livinguser in return_controllers_with_flag(VEHICLE_CONTROL_EQUIPMENT)))
-		balloon_alert(user, "wrong seat for equipment!")
-		return
-	var/obj/item/mecha_parts/mecha_equipment/selected
-	if(LAZYACCESS(modifiers, RIGHT_CLICK))
-		selected = equip_by_category[MECHA_R_ARM]
-	else
-		selected = equip_by_category[MECHA_L_ARM]
-	if(!selected)
-		return
-	if(!Adjacent(target) && (selected.range & MECHA_RANGED))
-		if(HAS_TRAIT(livinguser, TRAIT_PACIFISM) && selected.harmful)
-			to_chat(livinguser, span_warning("You don't want to harm other living beings!"))
-			return
-		if(SEND_SIGNAL(src, COMSIG_MECHA_EQUIPMENT_CLICK, livinguser, target) & COMPONENT_CANCEL_EQUIPMENT_CLICK)
-			return
-		INVOKE_ASYNC(selected, /obj/item/mecha_parts/mecha_equipment.proc/action, user, target, modifiers)
-		return
-	if((selected.range & MECHA_MELEE) && Adjacent(target))
-		if(isliving(target) && selected.harmful && HAS_TRAIT(livinguser, TRAIT_PACIFISM))
-			to_chat(livinguser, span_warning("You don't want to harm other living beings!"))
-			return
-		if(SEND_SIGNAL(src, COMSIG_MECHA_EQUIPMENT_CLICK, livinguser, target) & COMPONENT_CANCEL_EQUIPMENT_CLICK)
-			return
-		INVOKE_ASYNC(selected, /obj/item/mecha_parts/mecha_equipment.proc/action, user, target, modifiers)
-		return
-	if(!(livinguser in return_controllers_with_flag(VEHICLE_CONTROL_MELEE)))
-		to_chat(livinguser, span_warning("You're in the wrong seat to interact with your hands."))
-		return
-	var/on_cooldown = TIMER_COOLDOWN_CHECK(src, COOLDOWN_MECHA_MELEE_ATTACK)
-	var/adjacent = Adjacent(target)
-	if(SEND_SIGNAL(src, COMSIG_MECHA_MELEE_CLICK, livinguser, target, on_cooldown, adjacent) & COMPONENT_CANCEL_MELEE_CLICK)
-		return
-	if(on_cooldown || !adjacent)
-		return
-	if(internal_damage & MECHA_INT_CONTROL_LOST)
-		target = pick(oview(1,src))
-
-	if(!has_charge(melee_energy_drain))
-		return
-	use_power(melee_energy_drain)
-
-	if(force)
-		target.mech_melee_attack(src, user)
-		TIMER_COOLDOWN_START(src, COOLDOWN_MECHA_MELEE_ATTACK, melee_cooldown)
-
-/obj/vehicle/sealed/mecha/proc/on_middlemouseclick(mob/user, atom/target, params)
-	SIGNAL_HANDLER
-	if(isAI(user))
-		on_mouseclick(user, target, params)
-
 /***************** MECHA ACTIONS *****************/
 
 /obj/vehicle/sealed/mecha/generate_action_type()
 	. = ..()
 	if(istype(., /datum/action/vehicle/sealed/mecha))
-		var/datum/action/vehicle/sealed/mecha/mecha = .
-		mecha.chassis = src
-
+		var/datum/action/vehicle/sealed/mecha/mecha_action = .
+		mecha_action.set_chassis(src)
 
 /datum/action/vehicle/sealed/mecha
-	icon_icon = 'icons/mob/actions/actions_mecha.dmi'
+	button_icon = 'icons/mob/actions/actions_mecha.dmi'
 	var/obj/vehicle/sealed/mecha/chassis
 
 /datum/action/vehicle/sealed/mecha/Destroy()
 	chassis = null
 	return ..()
+
+///Sets the chassis var of our mecha action to the referenced mecha. Used during actions generation in
+///generate_action_type() chain.
+/datum/action/vehicle/sealed/mecha/proc/set_chassis(passed_chassis)
+	chassis = passed_chassis
 
 /datum/action/vehicle/sealed/mecha/mech_eject
 	name = "Eject From Mech"
@@ -129,7 +48,7 @@
 	button_icon_state = "mech_internals_[chassis.use_internal_tank ? "on" : "off"]"
 	chassis.balloon_alert(owner, "taking air from [chassis.use_internal_tank ? "internal airtank" : "environment"]")
 	chassis.log_message("Now taking air from [chassis.use_internal_tank?"internal airtank":"environment"].", LOG_MECHA)
-	UpdateButtons()
+	build_all_button_icons()
 
 /datum/action/vehicle/sealed/mecha/mech_toggle_lights
 	name = "Toggle Lights"
@@ -151,7 +70,7 @@
 	chassis.balloon_alert(owner, "toggled lights [chassis.mecha_flags & LIGHTS_ON ? "on":"off"]")
 	playsound(chassis,'sound/machines/clockcult/brass_skewer.ogg', 40, TRUE)
 	chassis.log_message("Toggled lights [(chassis.mecha_flags & LIGHTS_ON)?"on":"off"].", LOG_MECHA)
-	UpdateButtons()
+	build_all_button_icons()
 
 /datum/action/vehicle/sealed/mecha/mech_view_stats
 	name = "View Stats"
@@ -163,6 +82,27 @@
 
 	chassis.ui_interact(owner)
 
+/datum/action/vehicle/sealed/mecha/mech_toggle_safeties
+	name = "Toggle Equipment Safeties"
+	button_icon_state = "mech_safeties_off"
+
+/datum/action/vehicle/sealed/mecha/mech_toggle_safeties/set_chassis(passed_chassis)
+	. = ..()
+	RegisterSignal(chassis, COMSIG_MECH_SAFETIES_TOGGLE, PROC_REF(update_action_icon))
+
+/datum/action/vehicle/sealed/mecha/mech_toggle_safeties/Trigger(trigger_flags)
+	if(!owner || !chassis || !(owner in chassis.occupants))
+		return
+
+	chassis.set_safety(owner)
+
+/datum/action/vehicle/sealed/mecha/mech_toggle_safeties/apply_button_icon(atom/movable/screen/movable/action_button/current_button, force)
+	button_icon_state = "mech_safeties_[chassis.weapons_safety ? "on" : "off"]"
+	return ..()
+
+/datum/action/vehicle/sealed/mecha/mech_toggle_safeties/proc/update_action_icon()
+	SIGNAL_HANDLER
+	build_all_button_icons()
 
 /datum/action/vehicle/sealed/mecha/strafe
 	name = "Toggle Strafing. Disabled when Alt is held."
@@ -175,7 +115,7 @@
 	chassis.toggle_strafe()
 
 /obj/vehicle/sealed/mecha/AltClick(mob/living/user)
-	if(!(user in occupants) || !user.canUseTopic(src))
+	if(!(user in occupants) || !user.can_perform_action(src))
 		return
 	if(!(user in return_controllers_with_flag(VEHICLE_CONTROL_DRIVE)))
 		to_chat(user, span_warning("You're in the wrong seat to control movement."))
@@ -195,7 +135,7 @@
 
 	for(var/occupant in occupants)
 		var/datum/action/action = LAZYACCESSASSOC(occupant_actions, occupant, /datum/action/vehicle/sealed/mecha/strafe)
-		action?.UpdateButtons()
+		action?.build_all_button_icons()
 
 ///swap seats, for two person mecha
 /datum/action/vehicle/sealed/mecha/swap_seat

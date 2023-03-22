@@ -13,6 +13,7 @@ type Vote = {
   name: string;
   canBeInitiated: BooleanLike;
   config: VoteConfig;
+  message: string;
 };
 
 type Option = {
@@ -25,13 +26,22 @@ type ActiveVote = {
   question: string | null;
   timeRemaining: number;
   choices: Option[];
+  countMethod: number;
 };
 
 type UserData = {
+  ckey: string;
   isLowerAdmin: BooleanLike;
   isUpperAdmin: BooleanLike;
-  selectedChoice: string | null;
+  singleSelection: string | null;
+  multiSelection: string[] | null;
+  countMethod: VoteSystem;
 };
+
+enum VoteSystem {
+  VOTE_SINGLE = 1,
+  VOTE_MULTI = 2,
+}
 
 type Data = {
   currentVote: ActiveVote;
@@ -49,7 +59,11 @@ export const VotePanel = (props, context) => {
    */
   let windowTitle = 'Vote';
   if (currentVote) {
-    windowTitle += ': ' + (currentVote.question || currentVote.vote.name).replace(/^\w/, (c) => c.toUpperCase());
+    windowTitle +=
+      ': ' +
+      (currentVote.question || currentVote.vote.name).replace(/^\w/, (c) =>
+        c.toUpperCase()
+      );
   }
 
   return (
@@ -80,7 +94,7 @@ const VoteOptions = (props, context) => {
     <Stack.Item>
       <Collapsible title="Start a Vote">
         <Stack vertical justify="space-between">
-          { possibleVotes.map(option => (
+          {possibleVotes.map((option) => (
             <Stack.Item key={option.name}>
               {!!user.isLowerAdmin && option.config !== VoteConfig.None && (
                 <Button.Checkbox
@@ -88,17 +102,28 @@ const VoteOptions = (props, context) => {
                   color="red"
                   checked={option.config === VoteConfig.Enabled}
                   disabled={!user.isUpperAdmin}
-                  content={option.config === VoteConfig.Enabled ? 'Enabled' : 'Disabled'}
-                  onClick={() => act('toggleVote', {
-                    voteName: option.name,
-                  })} />
+                  content={
+                    option.config === VoteConfig.Enabled
+                      ? 'Enabled'
+                      : 'Disabled'
+                  }
+                  onClick={() =>
+                    act('toggleVote', {
+                      voteName: option.name,
+                    })
+                  }
+                />
               )}
               <Button
                 disabled={!option.canBeInitiated}
+                tooltip={option.message}
                 content={option.name}
-                onClick={() => act('callVote', {
-                  voteName: option.name,
-                })} />
+                onClick={() =>
+                  act('callVote', {
+                    voteName: option.name,
+                  })
+                }
+              />
             </Stack.Item>
           ))}
         </Stack>
@@ -116,7 +141,10 @@ const VotersList = (props, context) => {
 
   return (
     <Stack.Item>
-      <Collapsible title={`View Voters${data.voting.length ? `: ${data.voting.length}` : ""}`}>
+      <Collapsible
+        title={`View Voters${
+          data.voting.length ? `: ${data.voting.length}` : ''
+        }`}>
         <Section height={8} fill scrollable>
           {data.voting.map((voter) => {
             return <Box key={voter}>{voter}</Box>;
@@ -137,41 +165,81 @@ const ChoicesPanel = (props, context) => {
 
   return (
     <Stack.Item grow>
-      <Section fill scrollable title="Choices">
-        {currentVote && currentVote.choices.length !== 0 ? (
+      <Section fill scrollable title="Active Vote">
+        {currentVote && currentVote.countMethod === VoteSystem.VOTE_SINGLE ? (
+          <NoticeBox success>Select one option</NoticeBox>
+        ) : null}
+        {currentVote &&
+        currentVote.choices.length !== 0 &&
+        currentVote.countMethod === VoteSystem.VOTE_SINGLE ? (
           <LabeledList>
-            {currentVote.choices.map(choice => (
+            {currentVote.choices.map((choice) => (
               <Box key={choice.name}>
                 <LabeledList.Item
                   label={choice.name.replace(/^\w/, (c) => c.toUpperCase())}
                   textAlign="right"
                   buttons={
                     <Button
-                      disabled={user.selectedChoice === choice.name}
+                      disabled={user.singleSelection === choice.name}
                       onClick={() => {
-                        act('vote', { voteOption: choice.name });
+                        act('voteSingle', { voteOption: choice.name });
                       }}>
                       Vote
                     </Button>
                   }>
-                  {user.selectedChoice
-                  && choice.name === user.selectedChoice && (
-                    <Icon
-                      alignSelf="right"
-                      mr={2}
-                      color="green"
-                      name="vote-yea"
-                    />
-                  )}
+                  {user.singleSelection &&
+                    choice.name === user.singleSelection && (
+                      <Icon
+                        alignSelf="right"
+                        mr={2}
+                        color="green"
+                        name="vote-yea"
+                      />
+                    )}
                   {choice.votes} Votes
                 </LabeledList.Item>
                 <LabeledList.Divider />
               </Box>
             ))}
           </LabeledList>
-        ) : (
-          <NoticeBox>{currentVote ? "No choices available!" : "No vote active!"}</NoticeBox>
-        )}
+        ) : null}
+        {currentVote && currentVote.countMethod === VoteSystem.VOTE_MULTI ? (
+          <NoticeBox success>Select any number of options</NoticeBox>
+        ) : null}
+        {currentVote &&
+        currentVote.choices.length !== 0 &&
+        currentVote.countMethod === VoteSystem.VOTE_MULTI ? (
+          <LabeledList>
+            {currentVote.choices.map((choice) => (
+              <Box key={choice.name}>
+                <LabeledList.Item
+                  label={choice.name.replace(/^\w/, (c) => c.toUpperCase())}
+                  textAlign="right"
+                  buttons={
+                    <Button
+                      onClick={() => {
+                        act('voteMulti', { voteOption: choice.name });
+                      }}>
+                      Vote
+                    </Button>
+                  }>
+                  {user.multiSelection &&
+                  user.multiSelection[user.ckey.concat(choice.name)] === 1 ? (
+                    <Icon
+                      alignSelf="right"
+                      mr={2}
+                      color="blue"
+                      name="vote-yea"
+                    />
+                  ) : null}
+                  {choice.votes} Votes
+                </LabeledList.Item>
+                <LabeledList.Divider />
+              </Box>
+            ))}
+          </LabeledList>
+        ) : null}
+        {currentVote ? null : <NoticeBox>No vote active!</NoticeBox>}
       </Section>
     </Stack.Item>
   );
@@ -189,7 +257,8 @@ const TimePanel = (props, context) => {
     <Stack.Item mt={1}>
       <Section>
         <Stack justify="space-between">
-          <Box fontSize={1.5}>Time Remaining:&nbsp;
+          <Box fontSize={1.5}>
+            Time Remaining:&nbsp;
             {currentVote?.timeRemaining || 0}s
           </Box>
           {!!user.isLowerAdmin && (

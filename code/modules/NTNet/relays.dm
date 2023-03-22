@@ -9,7 +9,6 @@
 	density = TRUE
 	circuit = /obj/item/circuitboard/machine/ntnet_relay
 
-	var/datum/ntnet/NTNet = null // This is mostly for backwards reference and to allow varedit modifications from ingame.
 	///On / off status for the relay machine, toggleable by the user.
 	var/relay_enabled = TRUE
 	///(D)DoS-attack-related failure causing it not to be operational any longer.
@@ -35,7 +34,6 @@
 	else if(!dos_failure && !(machine_stat & (NOPOWER|BROKEN|MAINT))) //Turned on
 		set_is_operational(TRUE)
 
-
 ///Proc called to change the value of the `dos_failure` variable and append behavior related to its change.
 /obj/machinery/ntnet_relay/proc/set_dos_failure(new_value)
 	if(new_value == dos_failure)
@@ -48,14 +46,12 @@
 	else //Failure started
 		set_is_operational(FALSE)
 
-
 /obj/machinery/ntnet_relay/on_set_machine_stat(old_value)
 	if(old_value & (NOPOWER|BROKEN|MAINT))
 		if(relay_enabled && !dos_failure && !(machine_stat & (NOPOWER|BROKEN|MAINT))) //From off to on.
 			set_is_operational(TRUE)
 	else if(machine_stat & (NOPOWER|BROKEN|MAINT)) //From on to off.
 		set_is_operational(FALSE)
-
 
 /obj/machinery/ntnet_relay/update_icon_state()
 	icon_state = "bus[is_operational ? null : "_off"]"
@@ -116,17 +112,13 @@
 	uid = gl_uid++
 	component_parts = list()
 
-	if(SSnetworks.station_network)
-		SSnetworks.relays.Add(src)
-		NTNet = SSnetworks.station_network
-		SSnetworks.add_log("New quantum relay activated. Current amount of linked relays: [SSnetworks.relays.len]")
-	. = ..()
+	SSmodular_computers.ntnet_relays.Add(src)
+	SSnetworks.add_log("New quantum relay activated. Current amount of linked relays: [SSmodular_computers.ntnet_relays.len]")
+	return ..()
 
 /obj/machinery/ntnet_relay/Destroy()
-	if(SSnetworks.station_network)
-		SSnetworks.relays.Remove(src)
-		SSnetworks.add_log("Quantum relay connection severed. Current amount of linked relays: [SSnetworks.relays.len]")
-		NTNet = null
+	SSmodular_computers.ntnet_relays.Remove(src)
+	SSnetworks.add_log("Quantum relay connection severed. Current amount of linked relays: [SSmodular_computers.ntnet_relays.len]")
 
 	for(var/datum/computer_file/program/ntnet_dos/D in dos_sources)
 		D.target = null

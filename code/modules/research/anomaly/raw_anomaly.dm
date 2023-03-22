@@ -56,11 +56,23 @@
 	desc = "You should not see this!"
 	icon_state = "rawcore_bluespace"
 
-/obj/item/raw_anomaly_core/delimber
-	name = "raw delimber core"
-	desc = "The raw core of a delimber anomaly, it squirms."
-	anomaly_type = /obj/item/assembly/signaler/anomaly/delimber
-	icon_state = "rawcore_delimber"
+/obj/item/raw_anomaly_core/bioscrambler
+	name = "raw bioscrambler core"
+	desc = "The raw core of a bioscrambler anomaly, it squirms."
+	anomaly_type = /obj/item/assembly/signaler/anomaly/bioscrambler
+	icon_state = "rawcore_bioscrambler"
+
+/obj/item/raw_anomaly_core/dimensional
+	name = "raw dimensional core"
+	desc = "The raw core of a dimensional anomaly, vibrating with infinite potential."
+	anomaly_type = /obj/item/assembly/signaler/anomaly/dimensional
+	icon_state = "rawcore_dimensional"
+
+/obj/item/raw_anomaly_core/ectoplasm //Has no cargo order option, but can sometimes be a roundstart pick
+	name = "\improper ectoplasm anomaly core"
+	desc = "The raw core of an ectoplasmic anomaly. It wants to share its secrets with you."
+	anomaly_type = /obj/item/assembly/signaler/anomaly/ectoplasm
+	icon_state = "dimensional_core"
 
 /obj/item/raw_anomaly_core/random/Initialize(mapload)
 	. = ..()
